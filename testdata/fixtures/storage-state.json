@@ -1,0 +1,7 @@
+{
+  "cookies": [
+    {"name": "sid", "value": "fixture-sid-SECRET-do-not-print", "domain": ".ubereats.com", "path": "/", "expires": 1999999999, "secure": true, "httpOnly": true},
+    {"name": "csid", "value": "fixture-csid-SECRET-do-not-print", "domain": ".ubereats.com", "path": "/", "expires": 1999999999, "secure": true, "httpOnly": true},
+    {"name": "jwt-session", "value": "fixture-jwt-SECRET-do-not-print", "domain": ".ubereats.com", "path": "/", "expires": 1999999999, "secure": true, "httpOnly": true}
+  ]
+}

@@ -1,83 +1,133 @@
+// Copyright 2026 Amandeep Khurana and contributors. Licensed under Apache-2.0. See LICENSE.
+// Novel command: mirror getPastOrdersV1 into the local SQLite store.
+// pp:data-source live
+// Supported strategies: auto, local, live, or computed. Change this default deliberately.
+
 package cli
 
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
-	"strconv"
-	"time"
+	"strings"
 
-	"github.com/amansk/ubereats-pp-cli/internal/auth"
-	"github.com/amansk/ubereats-pp-cli/internal/client"
-	"github.com/amansk/ubereats-pp-cli/internal/exitcode"
-	"github.com/amansk/ubereats-pp-cli/internal/model"
-	"github.com/amansk/ubereats-pp-cli/internal/store"
 	"github.com/spf13/cobra"
+	"ubereats-pp-cli/internal/cliutil"
+	"ubereats-pp-cli/internal/orders"
 )
 
-const maxPages = 250
+const (
+	pastOrdersPath = "/_p/api/getPastOrdersV1"
+	syncMaxPages   = 250
+)
 
-func newSyncCmd(opt *Options) *cobra.Command {
+func newNovelSyncCmd(flags *rootFlags) *cobra.Command {
 	var full bool
 	var fixture string
+	var maxPages int
+
 	cmd := &cobra.Command{
 		Use:   "sync",
-		Short: "Pull past orders into SQLite (incremental by default)",
+		Short: "Mirror your Uber Eats order history into the local SQLite store",
+		Long: `Walk every page of getPastOrdersV1 with your browser session and mirror
+orders plus line items into the local store. Incremental by default: the walk
+stops at the first page whose orders are all already mirrored. --full re-walks
+from the newest order with no early stop. --from-fixture ingests a saved
+getPastOrdersV1 JSON body (one envelope or an array of envelopes) instead of
+calling Uber Eats, which keeps CI and offline demos honest.
+
+Wire field names are hunches until verified against a live capture; the parser
+is tolerant and the original per-order JSON is kept in raw_json.`,
+		Example: strings.Trim(`
+  ubereats-pp-cli sync --agent
+  ubereats-pp-cli sync --full --json
+  ubereats-pp-cli sync --from-fixture testdata/fixtures/past_orders_page.json --agent
+`, "\n"),
+		// sync never writes remote state: it reads getPastOrdersV1 and writes
+		// only the local SQLite mirror, so it is read-only from Uber's side.
+		Annotations: map[string]string{
+			"mcp:read-only":  "true",
+			"pp:data-source": "live",
+			"pp:happy-args":  "--max-pages=1",
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			db, home, err := opt.OpenStore()
+			if len(args) > 0 {
+				return usageErr(fmt.Errorf("sync takes no positional arguments (got %q)", args[0]))
+			}
+			if dryRunOK(flags) {
+				return writeDryRun(cmd.OutOrStdout(), flags, "POST "+pastOrdersPath+" until meta.hasMore is false, then upsert into ue_orders/ue_items")
+			}
+			ctx, cancel := boundCtx(cmd.Context(), flags)
+			defer cancel()
+
+			s, mirror, err := openMirror(ctx)
 			if err != nil {
 				return err
 			}
-			defer db.Close()
+			defer s.Close()
 
 			mode := "incremental"
 			if full {
 				mode = "full"
 			}
+			if maxPages <= 0 || maxPages > syncMaxPages {
+				maxPages = syncMaxPages
+			}
+			if cliutil.IsDogfoodEnv() && maxPages > 1 {
+				// Live dogfood runs every command under a flat timeout; one page
+				// proves the wire path without walking years of history.
+				maxPages = 1
+			}
 
-			var result model.SyncResult
+			var result orders.SyncResult
 			if fixture != "" {
-				result, err = syncFromFixture(db, fixture, mode)
+				result, err = syncFromFixture(ctx, mirror, fixture, mode)
 			} else {
-				result, err = syncFromAPI(cmd.Context(), home, db, mode)
+				result, err = syncFromAPI(ctx, cmd, flags, mirror, mode, maxPages)
 			}
 			if err != nil {
-				_ = db.SetState("last_error", err.Error())
 				return err
 			}
-			_ = db.SetState("last_error", "")
-			_ = db.SetState("last_sync_at", time.Now().UTC().Format(time.RFC3339))
-			_ = db.SetState("last_mode", result.Mode)
-			n, _ := db.Count()
-			_ = db.SetState("order_count", itoa(n))
-			result.Mode = mode
-			return writeOut(cmd, opt, result)
+			n, _ := mirror.Count(ctx)
+			result.TotalOrders = n
+			_ = s.SaveSyncState("ue_orders", "", n)
+			if wantsHumanTable(cmd.OutOrStdout(), flags) {
+				fmt.Fprintf(cmd.OutOrStdout(), "synced %d new/updated orders (%d line items) from %s; %d orders mirrored\n",
+					result.Upserted, result.ItemRows, result.Source, result.TotalOrders)
+				return nil
+			}
+			return flags.printJSON(cmd, result)
 		},
 	}
-	cmd.Flags().BoolVar(&full, "full", false, "Re-walk from the first page (no early stop)")
-	cmd.Flags().StringVar(&fixture, "from-fixture", "", "Load getPastOrdersV1 JSON instead of the network")
+	cmd.Flags().BoolVar(&full, "full", false, "Re-walk from the newest order with no early stop")
+	cmd.Flags().StringVar(&fixture, "from-fixture", "", "Ingest a saved getPastOrdersV1 JSON body instead of calling Uber Eats")
+	cmd.Flags().IntVar(&maxPages, "max-pages", syncMaxPages, "Stop after this many pages (safety bound)")
 	return cmd
 }
 
-func syncFromFixture(db *store.DB, path, mode string) (model.SyncResult, error) {
+func syncFromFixture(ctx context.Context, mirror *orders.Mirror, path, mode string) (orders.SyncResult, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
-		return model.SyncResult{}, exitcode.Usagef("read fixture: %w", err)
+		return orders.SyncResult{}, usageErr(fmt.Errorf("read --from-fixture %s: %w", path, err))
 	}
 	pages, err := loadFixturePages(raw)
 	if err != nil {
-		return model.SyncResult{}, err
+		return orders.SyncResult{}, apiErr(err)
 	}
-	return ingestPages(db, pages, mode, "fixture:"+path)
+	return ingestPages(ctx, mirror, pages, mode, "fixture:"+path)
 }
 
-func loadFixturePages(raw []byte) ([]client.Page, error) {
-	// Array of envelopes, or a single envelope.
-	var arr []json.RawMessage
-	if err := json.Unmarshal(raw, &arr); err == nil && len(arr) > 0 && raw[0] == '[' {
-		var pages []client.Page
+func loadFixturePages(raw []byte) ([]orders.Page, error) {
+	trimmed := strings.TrimSpace(string(raw))
+	if strings.HasPrefix(trimmed, "[") {
+		var arr []json.RawMessage
+		if err := json.Unmarshal(raw, &arr); err != nil {
+			return nil, fmt.Errorf("fixture is not a JSON array of envelopes: %w", err)
+		}
+		pages := make([]orders.Page, 0, len(arr))
 		for _, item := range arr {
-			p, err := client.ParsePastOrders(item)
+			p, err := orders.ParsePastOrders(item)
 			if err != nil {
 				return nil, err
 			}
@@ -85,34 +135,35 @@ func loadFixturePages(raw []byte) ([]client.Page, error) {
 		}
 		return pages, nil
 	}
-	p, err := client.ParsePastOrders(raw)
+	p, err := orders.ParsePastOrders(raw)
 	if err != nil {
 		return nil, err
 	}
-	return []client.Page{p}, nil
+	return []orders.Page{p}, nil
 }
 
-func syncFromAPI(ctx context.Context, home string, db *store.DB, mode string) (model.SyncResult, error) {
-	st, err := auth.Load(home)
+func syncFromAPI(ctx context.Context, cmd *cobra.Command, flags *rootFlags, mirror *orders.Mirror, mode string, maxPages int) (orders.SyncResult, error) {
+	c, err := flags.newClient()
 	if err != nil {
-		return model.SyncResult{}, err
+		return orders.SyncResult{}, err
 	}
-	base := os.Getenv("UBERATS_PP_BASE_URL")
-	c := client.New(st, base)
 	known := map[string]struct{}{}
 	if mode == "incremental" {
-		known, err = db.KnownIDs()
-		if err != nil {
-			return model.SyncResult{}, err
+		if known, err = mirror.KnownIDs(ctx); err != nil {
+			return orders.SyncResult{}, err
 		}
 	}
 
-	var pages []client.Page
+	var pages []orders.Page
 	cursor := ""
 	for i := 0; i < maxPages; i++ {
-		page, err := c.GetPastOrders(ctx, cursor)
+		raw, _, err := c.Post(ctx, pastOrdersPath, map[string]string{"lastWorkflowUUID": cursor})
 		if err != nil {
-			return model.SyncResult{}, err
+			return orders.SyncResult{}, classifyAPIError(cmd.OutOrStdout(), err, flags)
+		}
+		page, err := orders.ParsePastOrders(raw)
+		if err != nil {
+			return orders.SyncResult{}, apiErr(err)
 		}
 		pages = append(pages, page)
 		if len(page.Orders) == 0 {
@@ -126,14 +177,14 @@ func syncFromAPI(ctx context.Context, home string, db *store.DB, mode string) (m
 		}
 		cursor = page.NextCursor
 	}
-	return ingestPages(db, pages, mode, "getPastOrdersV1")
+	return ingestPages(ctx, mirror, pages, mode, "getPastOrdersV1")
 }
 
-func allKnown(orders []model.Order, known map[string]struct{}) bool {
-	if len(orders) == 0 {
+func allKnown(list []orders.Order, known map[string]struct{}) bool {
+	if len(list) == 0 {
 		return false
 	}
-	for _, o := range orders {
+	for _, o := range list {
 		if _, ok := known[o.ID]; !ok {
 			return false
 		}
@@ -141,13 +192,13 @@ func allKnown(orders []model.Order, known map[string]struct{}) bool {
 	return true
 }
 
-func ingestPages(db *store.DB, pages []client.Page, mode, source string) (model.SyncResult, error) {
-	known, err := db.KnownIDs()
+func ingestPages(ctx context.Context, mirror *orders.Mirror, pages []orders.Page, mode, source string) (orders.SyncResult, error) {
+	known, err := mirror.KnownIDs(ctx)
 	if err != nil {
-		return model.SyncResult{}, err
+		return orders.SyncResult{}, err
 	}
 	seen := map[string]struct{}{}
-	var batch []model.Order
+	var batch []orders.Order
 	rawByID := map[string][]byte{}
 	skipped := 0
 	stoppedEarly := false
@@ -175,11 +226,11 @@ func ingestPages(db *store.DB, pages []client.Page, mode, source string) (model.
 			break
 		}
 	}
-	upserted, items, err := db.UpsertOrders(batch, rawByID)
+	upserted, items, err := mirror.UpsertOrders(ctx, batch, rawByID)
 	if err != nil {
-		return model.SyncResult{}, err
+		return orders.SyncResult{}, err
 	}
-	return model.SyncResult{
+	return orders.SyncResult{
 		Mode:         mode,
 		Pages:        len(pages),
 		Upserted:     upserted,
@@ -188,8 +239,4 @@ func ingestPages(db *store.DB, pages []client.Page, mode, source string) (model.
 		Source:       source,
 		StoppedEarly: stoppedEarly,
 	}, nil
-}
-
-func itoa(n int) string {
-	return strconv.Itoa(n)
 }

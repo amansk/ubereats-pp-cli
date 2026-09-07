@@ -1,0 +1,43 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: gofmt
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+      - name: go vet
+        run: go vet ./...
+      - name: go build
+        run: go build ./...
+      - name: go test
+        run: go test -count=1 ./...
+      - name: govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+      - name: fixture smoke (no network)
+        run: |
+          go build -o bin/ubereats-pp-cli ./cmd/ubereats-pp-cli
+          ./bin/ubereats-pp-cli --version
+          ./bin/ubereats-pp-cli --help >/dev/null
+          H="$RUNNER_TEMP/ue"
+          ./bin/ubereats-pp-cli --home "$H" sync --from-fixture testdata/fixtures/past_orders_page.json --json
+          ./bin/ubereats-pp-cli --home "$H" history list --json
+          ./bin/ubereats-pp-cli --home "$H" spend --by year --json
+          ./bin/ubereats-pp-cli --home "$H" top-items --json
+          ./bin/ubereats-pp-cli --home "$H" find ramen --json
+          # cookie values must never reach stdout/stderr
+          ./bin/ubereats-pp-cli --home "$H" auth login --cookies-file testdata/fixtures/storage-state.json --json >/tmp/login.out 2>&1 || true
+          ! grep -q "SECRET-do-not-print" /tmp/login.out
+          ! ./bin/ubereats-pp-cli --home "$H" auth status --json 2>&1 | grep -q "SECRET-do-not-print"

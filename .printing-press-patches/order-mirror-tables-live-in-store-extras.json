@@ -1,0 +1,11 @@
+{
+  "schema_version": 2,
+  "id": "order-mirror-tables-live-in-store-extras",
+  "applied_at": "2026-09-07",
+  "base_run_id": "20260907-180949-bd884da5",
+  "base_printing_press_version": "4.32.0",
+  "summary": "The order-history mirror (ue_orders, ue_items) is created from store.migrateExtras via orders.Migrations so the novel commands share the generated SQLite store instead of opening a second database.",
+  "reason": "The generic resources table cannot answer spend, top-items, or item-title search; typed tables with indexes are required, and they must be created on every store open so a fresh install works before the first sync.",
+  "files": ["internal/store/extras.go", "internal/orders/store.go"],
+  "validated_outcome": "go test ./internal/orders ./internal/cli: fixture sync then history/spend/top-items/top-restaurants/find all pass; LIKE wildcards are matched literally."
+}

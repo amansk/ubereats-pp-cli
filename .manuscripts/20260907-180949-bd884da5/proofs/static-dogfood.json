@@ -1,0 +1,130 @@
+{
+  "dir": "/tmp/pp/out",
+  "spec_path": "/tmp/pp/out/spec.yaml",
+  "spec_source": "bundled",
+  "verdict": "WARN",
+  "path_check": {
+    "tested": 0,
+    "valid": 0,
+    "valid_pct": 0,
+    "skipped": true,
+    "detail": "internal-yaml spec: paths validated at parse time"
+  },
+  "auth_check": {
+    "spec_scheme": "",
+    "generated_format": "unknown",
+    "match": true,
+    "detail": "no bot/bearer/basic scheme detected"
+  },
+  "browser_session_check": {
+    "required": true,
+    "has_auth_login_chrome": true,
+    "has_proof_writer": true,
+    "has_doctor_proof_check": true,
+    "has_validation_endpoint": true,
+    "pass": true,
+    "detail": "browser-session auth has login, proof, doctor, and validation endpoint wiring"
+  },
+  "oauth_scope_coverage_check": {
+    "checked": 0,
+    "covered": 0,
+    "skipped": true,
+    "detail": "no OAuth-scoped endpoints in spec"
+  },
+  "dead_flags": {
+    "total": 22,
+    "dead": 0
+  },
+  "dead_functions": {
+    "total": 95,
+    "dead": 3,
+    "items": [
+      "handleBinaryResponseDelivery",
+      "paginatedGetWithResponsePath",
+      "successfulNoop"
+    ]
+  },
+  "pipeline_check": {
+    "sync_calls_domain": true,
+    "search_calls_domain": false,
+    "domain_tables": 4,
+    "sync_file_emitted": true,
+    "sync_resources_present": true,
+    "detail": "sync uses domain-specific Upsert methods; search methods not found; 4 domain tables found"
+  },
+  "example_check": {
+    "tested": 10,
+    "with_examples": 10,
+    "valid_examples": 10,
+    "detail": "10/10 commands have examples"
+  },
+  "wiring_check": {
+    "command_tree": {
+      "defined": 57,
+      "registered": 57
+    },
+    "config_consistency": {
+      "write_fields": [
+        ", token, "
+      ],
+      "read_fields": [
+        " || c.CookieCredential() != "
+      ],
+      "mismatched": [
+        " || c.CookieCredential() != ",
+        ", token, "
+      ],
+      "consistent": false
+    },
+    "workflow_completeness": {
+      "skipped": true,
+      "total_steps": 0,
+      "mapped_steps": 0,
+      "detail": "no workflow_verify.yaml found"
+    }
+  },
+  "novel_features_check": {
+    "planned": 6,
+    "found": 6,
+    "depth_mismatches": [
+      {
+        "command": "history",
+        "advertised": "history list",
+        "actual": "feedback list, learnings list, playbook list, profile list"
+      }
+    ]
+  },
+  "mcp_surface_parity": {
+    "state": "runtime_walking",
+    "pass": true,
+    "detail": "MCP surface mirrors the Cobra tree at runtime"
+  },
+  "reimplementation_check": {
+    "checked": 6,
+    "exempted_via_store": 6
+  },
+  "description_drift_check": {
+    "expected": "Your Uber Eats order history as a local database — spend, favourites, and search the app cannot answer."
+  },
+  "source_client_check": {
+    "checked": 12
+  },
+  "print_json_filtered_check": {
+    "checked": 30
+  },
+  "test_presence": {
+    "checked": 3
+  },
+  "naming_check": {
+    "checked": 30
+  },
+  "sync_param_drop_check": {
+    "checked": 0,
+    "skipped": true
+  },
+  "issues": [
+    "3 dead helper functions found",
+    "config inconsistency: write fields [, token, ] vs read fields [ || c.CookieCredential() != ]",
+    "1 novel feature command-depth mismatches: history advertised as history list but registered as feedback list, learnings list, playbook list, profile list"
+  ]
+}

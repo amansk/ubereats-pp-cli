@@ -1,0 +1,63 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-09-07T18:10:26.624370465Z",
+  "printing_press_version": "4.32.0",
+  "api_name": "ubereats",
+  "display_name": "Uber Eats",
+  "cli_name": "ubereats-pp-cli",
+  "creator": {
+    "handle": "amansk",
+    "name": "Amandeep Khurana"
+  },
+  "owner": "amansk",
+  "printer": "amansk",
+  "printer_name": "Amandeep Khurana",
+  "spec_path": "spec.yaml",
+  "spec_format": "internal",
+  "spec_source": "sniffed",
+  "spec_checksum": "sha256:b4f6efc851b3f86542f3a1c6ed7becba78bc6fc78000a6e8654eede7e8529c99",
+  "run_id": "20260907-180949-bd884da5",
+  "category": "food-and-dining",
+  "description": "Your Uber Eats order history as a local database — spend, favourites, and search the app cannot answer.",
+  "mcp_binary": "ubereats-pp-mcp",
+  "mcp_tool_count": 2,
+  "mcp_ready": "partial",
+  "api_version": "0.1.0",
+  "auth_type": "cookie",
+  "auth_env_vars": [
+    "UBEREATS_COOKIES"
+  ],
+  "auth_description": "Uber Eats consumer endpoints are cookie-session only. Sign in at ubereats.com in Chrome, then run auth login --chrome. There is no public buyer OAuth.",
+  "novel_features": [
+    {
+      "name": "Local order-history mirror",
+      "command": "sync",
+      "description": "Walk every page of getPastOrdersV1 and mirror orders plus line items into SQLite, incrementally by default."
+    },
+    {
+      "name": "Order history queries",
+      "command": "history",
+      "description": "List synced orders newest-first with date bounds, or fetch one order with its line items by id."
+    },
+    {
+      "name": "Spend by month or year",
+      "command": "spend",
+      "description": "Sum order totals into monthly or yearly buckets from the local mirror."
+    },
+    {
+      "name": "Most-ordered items",
+      "command": "top-items",
+      "description": "Rank line items by quantity across every synced order, with order counts and spend."
+    },
+    {
+      "name": "Most-ordered restaurants",
+      "command": "top-restaurants",
+      "description": "Rank restaurants by order count and total spend."
+    },
+    {
+      "name": "Offline text search",
+      "command": "find",
+      "description": "Case-insensitive search across restaurant names and item titles in the local mirror."
+    }
+  ]
+}

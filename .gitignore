@@ -1,12 +1,12 @@
-/ubereats-pp-cli
 /bin/
 /dist/
+/ubereats-pp-cli
+/ubereats-pp-mcp
 *.db
 *.db-wal
 *.db-shm
-/cookies.json
+*.mcpb
 .env
-.idea/
-.vscode/
-*.swp
+credentials.toml
+session-state.json
 .DS_Store

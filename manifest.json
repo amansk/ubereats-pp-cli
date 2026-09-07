@@ -1,0 +1,50 @@
+{
+  "manifest_version": "0.3",
+  "name": "ubereats-pp-mcp",
+  "display_name": "Uber Eats",
+  "version": "0.1.0",
+  "description": "Your Uber Eats order history as a local database — spend, favourites, and search the app cannot answer.",
+  "author": {
+    "name": "CLI Printing Press"
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/ubereats-pp-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/ubereats-pp-mcp",
+      "args": [],
+      "env": {
+        "UBEREATS_BASE_URL": "${user_config.ubereats_base_url}",
+        "UBEREATS_COOKIES": "${user_config.ubereats_cookies}",
+        "UBEREATS_USER_AGENT": "${user_config.ubereats_user_agent}"
+      }
+    }
+  },
+  "user_config": {
+    "ubereats_base_url": {
+      "type": "string",
+      "title": "UBEREATS_BASE_URL",
+      "description": "Optional. Sets UBEREATS_BASE_URL for the Uber Eats MCP server. Per-instance, non-secret setting; not a credential."
+    },
+    "ubereats_cookies": {
+      "type": "string",
+      "title": "UBEREATS_COOKIES",
+      "description": "Uber Eats consumer endpoints are cookie-session only. Sign in at ubereats.com in Chrome, then run auth login --chrome. There is no public buyer OAuth.",
+      "sensitive": true
+    },
+    "ubereats_user_agent": {
+      "type": "string",
+      "title": "UBEREATS_USER_AGENT",
+      "description": "Optional. Sets UBEREATS_USER_AGENT for the Uber Eats MCP server. Per-instance, non-secret setting; not a credential."
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  }
+}

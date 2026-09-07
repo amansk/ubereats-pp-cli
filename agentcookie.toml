@@ -1,0 +1,16 @@
+# agentcookie.toml: secrets-bus adoption manifest v2
+# See docs/spec-agentcookie-secrets-bus-v2-adoption.md
+schema_version = 2
+name = "ubereats-pp-cli"
+display_name = "Uber Eats"
+description = "Your Uber Eats order history as a local database — spend, favourites, and search the app cannot answer."
+project_kind = "cli"
+
+[secrets.file]
+path = "~/.config/ubereats-pp-cli/config.toml"
+
+[sync]
+default = false
+
+[sync.keys]
+UBEREATS_COOKIES = true

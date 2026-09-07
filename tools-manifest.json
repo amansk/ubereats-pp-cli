@@ -1,0 +1,47 @@
+{
+  "api_name": "ubereats",
+  "base_url": "https://www.ubereats.com",
+  "description": "Your Uber Eats order history as a local database — spend, favourites, and search the app cannot answer.",
+  "mcp_ready": "partial",
+  "http_transport": "standard",
+  "auth": {
+    "type": "cookie",
+    "in": "cookie",
+    "env_vars": [
+      "UBEREATS_COOKIES"
+    ],
+    "env_var_specs": [
+      {
+        "name": "UBEREATS_COOKIES",
+        "kind": "per_call",
+        "required": true,
+        "sensitive": true,
+        "inferred": true
+      }
+    ],
+    "cookie_domain": ".ubereats.com",
+    "cookies": [
+      "sid",
+      "csid",
+      "jwt-session"
+    ],
+    "requires_browser_session": true,
+    "browser_session_validation_path": "/_p/api/getUserV1",
+    "browser_session_validation_method": "POST"
+  },
+  "required_headers": [
+    {
+      "name": "x-csrf-token",
+      "value": "x"
+    },
+    {
+      "name": "Origin",
+      "value": "https://www.ubereats.com"
+    },
+    {
+      "name": "Referer",
+      "value": "https://www.ubereats.com/orders"
+    }
+  ],
+  "tools": []
+}

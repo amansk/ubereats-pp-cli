@@ -1,0 +1,159 @@
+{
+  "api_name": "ubereats",
+  "novelty_score": 8,
+  "alternatives": [
+    {
+      "name": "neopheus getPastOrdersV1 gist",
+      "url": "https://gist.github.com/neopheus/3cc521ed9a299c99a33959192592664a",
+      "language": "python",
+      "install_method": "binary",
+      "stars": 0,
+      "last_updated": "2024",
+      "command_count": 1,
+      "has_json_output": false,
+      "has_auth_support": true
+    },
+    {
+      "name": "Coffee-Boyy/ai-food-order",
+      "url": "https://github.com/Coffee-Boyy/ai-food-order",
+      "language": "python",
+      "install_method": "pip",
+      "stars": 0,
+      "last_updated": "2025",
+      "command_count": 3,
+      "has_json_output": false,
+      "has_auth_support": true
+    }
+  ],
+  "gaps": [
+    "No existing tool stores Uber Eats buyer history locally or answers spend and frequency questions offline",
+    "Replay scripts print raw JSON with no typed exit codes, no pagination loop, and no cookie redaction"
+  ],
+  "patterns": [
+    "Replay the website's own getPastOrdersV1 RPC with the browser cookie jar and the literal x-csrf-token: x header",
+    "Paginate with lastWorkflowUUID and stop when meta.hasMore is false"
+  ],
+  "recommendation": "proceed",
+  "researched_at": "2026-09-07T18:00:00Z",
+  "novel_features": [
+    {
+      "name": "Local order-history mirror",
+      "command": "sync",
+      "description": "Walk every page of getPastOrdersV1 and mirror orders plus line items into SQLite, incrementally by default.",
+      "rationale": "The website shows ten orders per screen with no export; a local mirror is the only way to query years of history.",
+      "example": "ubereats-pp-cli sync --agent",
+      "why_it_matters": "Run it once and every other command works offline in milliseconds.",
+      "group": "Local state that compounds"
+    },
+    {
+      "name": "Order history queries",
+      "command": "history",
+      "description": "List synced orders newest-first with date bounds, or fetch one order with its line items by id.",
+      "rationale": "Agents need stable ids and bounded lists, not a scrolling web page.",
+      "example": "ubereats-pp-cli history list --since 2026-01-01 --limit 20 --agent",
+      "why_it_matters": "Stable UUIDs and date filters make follow-up questions cheap.",
+      "group": "Local state that compounds"
+    },
+    {
+      "name": "Spend by month or year",
+      "command": "spend",
+      "description": "Sum order totals into monthly or yearly buckets from the local mirror.",
+      "rationale": "Uber Eats offers no spend report at all.",
+      "example": "ubereats-pp-cli spend --by month --agent",
+      "why_it_matters": "Answers 'how much did I spend on delivery this year' in one call.",
+      "group": "Analytics the app cannot do"
+    },
+    {
+      "name": "Most-ordered items",
+      "command": "top-items",
+      "description": "Rank line items by quantity across every synced order, with order counts and spend.",
+      "rationale": "Reorder suggestions in the app are opaque; this is the real ranking from your data.",
+      "example": "ubereats-pp-cli top-items --limit 10 --agent",
+      "why_it_matters": "Grounds 'what do I usually get' in actual counts.",
+      "group": "Analytics the app cannot do"
+    },
+    {
+      "name": "Most-ordered restaurants",
+      "command": "top-restaurants",
+      "description": "Rank restaurants by order count and total spend.",
+      "rationale": "No restaurant-level history view exists on the site.",
+      "example": "ubereats-pp-cli top-restaurants --limit 10 --agent",
+      "why_it_matters": "Shows where the money actually goes.",
+      "group": "Analytics the app cannot do"
+    },
+    {
+      "name": "Offline text search",
+      "command": "find",
+      "description": "Case-insensitive search across restaurant names and item titles in the local mirror.",
+      "rationale": "The website has no order search.",
+      "example": "ubereats-pp-cli find ramen --agent",
+      "why_it_matters": "'When did I last order X' becomes a single local query.",
+      "group": "Analytics the app cannot do"
+    }
+  ],
+  "novel_features_built": [
+    {
+      "name": "Local order-history mirror",
+      "command": "sync",
+      "description": "Walk every page of getPastOrdersV1 and mirror orders plus line items into SQLite, incrementally by default.",
+      "rationale": "The website shows ten orders per screen with no export; a local mirror is the only way to query years of history.",
+      "example": "ubereats-pp-cli sync --agent",
+      "why_it_matters": "Run it once and every other command works offline in milliseconds.",
+      "group": "Local state that compounds"
+    },
+    {
+      "name": "Order history queries",
+      "command": "history",
+      "description": "List synced orders newest-first with date bounds, or fetch one order with its line items by id.",
+      "rationale": "Agents need stable ids and bounded lists, not a scrolling web page.",
+      "example": "ubereats-pp-cli history list --since 2026-01-01 --limit 20 --agent",
+      "why_it_matters": "Stable UUIDs and date filters make follow-up questions cheap.",
+      "group": "Local state that compounds"
+    },
+    {
+      "name": "Spend by month or year",
+      "command": "spend",
+      "description": "Sum order totals into monthly or yearly buckets from the local mirror.",
+      "rationale": "Uber Eats offers no spend report at all.",
+      "example": "ubereats-pp-cli spend --by month --agent",
+      "why_it_matters": "Answers 'how much did I spend on delivery this year' in one call.",
+      "group": "Analytics the app cannot do"
+    },
+    {
+      "name": "Most-ordered items",
+      "command": "top-items",
+      "description": "Rank line items by quantity across every synced order, with order counts and spend.",
+      "rationale": "Reorder suggestions in the app are opaque; this is the real ranking from your data.",
+      "example": "ubereats-pp-cli top-items --limit 10 --agent",
+      "why_it_matters": "Grounds 'what do I usually get' in actual counts.",
+      "group": "Analytics the app cannot do"
+    },
+    {
+      "name": "Most-ordered restaurants",
+      "command": "top-restaurants",
+      "description": "Rank restaurants by order count and total spend.",
+      "rationale": "No restaurant-level history view exists on the site.",
+      "example": "ubereats-pp-cli top-restaurants --limit 10 --agent",
+      "why_it_matters": "Shows where the money actually goes.",
+      "group": "Analytics the app cannot do"
+    },
+    {
+      "name": "Offline text search",
+      "command": "find",
+      "description": "Case-insensitive search across restaurant names and item titles in the local mirror.",
+      "rationale": "The website has no order search.",
+      "example": "ubereats-pp-cli find ramen --agent",
+      "why_it_matters": "'When did I last order X' becomes a single local query.",
+      "group": "Analytics the app cannot do"
+    }
+  ],
+  "auth": {
+    "canonical_env_var": "UBEREATS_COOKIES"
+  },
+  "narrative": {
+    "display_name": "Uber Eats",
+    "headline": "Your Uber Eats order history as a local database — spend, favourites, and search the app cannot answer.",
+    "value_prop": "Uber Eats has no public buyer API and the website only shows ten orders at a time. This CLI replays the same order-history call the website makes with your own browser session, mirrors every past order and line item into SQLite, and answers the questions the app cannot: how much did I spend last month, what do I order most, and when did I last order ramen. It is strictly read-only: it never places, tips, pays, or touches Uber rides.",
+    "auth_narrative": "Uber Eats consumer endpoints are cookie-session only; the public Eats Marketplace OAuth scopes are merchant-side and cannot read a buyer's history. Sign in at ubereats.com in Chrome, then run `ubereats-pp-cli auth login --chrome` (or `--cookies-file` with a Playwright storage-state export or a raw Cookie header). Cookie values are stored with mode 0600 and never printed."
+  }
+}

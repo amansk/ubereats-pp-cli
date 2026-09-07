@@ -1,0 +1,102 @@
+name: ubereats
+display_name: "Uber Eats"
+description: "Read-only Uber Eats buyer CLI: sync your order history to SQLite and query spend, items, and restaurants as JSON"
+version: "0.1.0"
+category: food-and-dining
+website_url: "https://www.ubereats.com"
+base_url: "https://www.ubereats.com"
+health_check_path: "/_p/api/getUserV1"
+required_headers:
+  - name: x-csrf-token
+    value: "x"
+  - name: Origin
+    value: "https://www.ubereats.com"
+  - name: Referer
+    value: "https://www.ubereats.com/orders"
+
+auth:
+  type: cookie
+  in: cookie
+  cookie_domain: ".ubereats.com"
+  cookies:
+    - sid
+    - csid
+    - jwt-session
+  login_url: "https://www.ubereats.com/login-redirect"
+  jwt_carrier_cookie: jwt-session
+  env_vars:
+    - UBEREATS_COOKIES
+  description: "Uber Eats consumer endpoints are cookie-session only. Sign in at ubereats.com in Chrome, then run auth login --chrome. There is no public buyer OAuth."
+  requires_browser_session: true
+  browser_session_reason: "Buyer order history is only reachable with the logged-in web session; the public Eats Marketplace OAuth scopes are merchant-only."
+  browser_session_validation_path: "/_p/api/getUserV1"
+  browser_session_validation_method: POST
+
+config:
+  format: toml
+  path: "~/.config/ubereats-pp-cli/config.toml"
+
+cache:
+  enabled: true
+
+resources:
+  orders:
+    description: "Past Uber Eats orders (buyer history)"
+    endpoints:
+      list:
+        method: POST
+        path: "/_p/api/getPastOrdersV1"
+        mutation: false
+        syncable: true
+        description: "List past orders, newest first (paginated by lastWorkflowUUID)"
+        example: "  ubereats-pp-cli orders list --agent"
+        body:
+          - name: lastWorkflowUUID
+            flag_name: cursor
+            type: string
+            default: ""
+            description: "Workflow UUID of the last order seen; empty for the first page"
+        response:
+          type: object
+          item: PastOrdersPage
+        response_path: data
+        pagination:
+          type: cursor
+          cursor_field: data.lastWorkflowUUID
+          has_more_field: data.meta.hasMore
+  user:
+    description: "The signed-in buyer profile"
+    endpoints:
+      get:
+        method: POST
+        path: "/_p/api/getUserV1"
+        mutation: false
+        description: "Fetch the signed-in user profile (live session probe)"
+        body:
+          - name: shouldGetSubsMetadata
+            type: bool
+            default: true
+            description: "Include Uber One subscription metadata"
+        response:
+          type: object
+          item: User
+        response_path: data
+
+types:
+  PastOrdersPage:
+    fields:
+      - name: ordersMap
+        type: object
+        description: "Map of workflowUUID to order"
+      - name: meta
+        type: object
+  User:
+    fields:
+      - name: uuid
+        type: string
+      - name: firstName
+        type: string
+      - name: lastName
+        type: string
+      - name: email
+        type: string
