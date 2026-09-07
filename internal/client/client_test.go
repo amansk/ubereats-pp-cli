@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/amansk/ubereats-pp-cli/internal/auth"
@@ -67,6 +68,26 @@ func TestAuthErrorOn401(t *testing.T) {
 	var ex *exitcode.Error
 	if !exitcode.As(err, &ex) || ex.Code != exitcode.Auth {
 		t.Fatalf("want auth, got %v", err)
+	}
+}
+
+func TestErrorBodyCookieIsRedacted(t *testing.T) {
+	secret := "super-secret-cookie-value"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"error":"echo ` + secret + `"}`))
+	}))
+	defer srv.Close()
+	c := New(auth.Store{Cookies: map[string]string{"sid": secret}}, srv.URL)
+	_, err := c.GetPastOrders(context.Background(), "")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if strings.Contains(err.Error(), secret) {
+		t.Fatalf("cookie leaked in error: %v", err)
+	}
+	if !strings.Contains(err.Error(), "[redacted]") {
+		t.Fatalf("want redacted marker, got %v", err)
 	}
 }
 

@@ -11,6 +11,15 @@ import (
 	"github.com/amansk/ubereats-pp-cli/internal/exitcode"
 )
 
+var fixtureSecrets = []string{
+	"fixture-sid-SECRET-do-not-print",
+	"fixture-csid-SECRET-do-not-print",
+	"fixture-jwt-SECRET-do-not-print",
+	"json-sid-SECRET-do-not-print",
+	"json-csid-SECRET-do-not-print",
+	"piped-SECRET",
+}
+
 func runCLI(t *testing.T, home string, args ...string) (string, string, error) {
 	t.Helper()
 	cmd := NewRoot()
@@ -19,7 +28,18 @@ func runCLI(t *testing.T, home string, args ...string) (string, string, error) {
 	cmd.SetErr(&errb)
 	cmd.SetArgs(append([]string{"--home", home}, args...))
 	err := cmd.Execute()
+	assertNoCookieLeak(t, args, out.String(), errb.String())
 	return out.String(), errb.String(), err
+}
+
+func assertNoCookieLeak(t *testing.T, args []string, blobs ...string) {
+	t.Helper()
+	joined := strings.Join(blobs, "\n")
+	for _, secret := range fixtureSecrets {
+		if strings.Contains(joined, secret) {
+			t.Fatalf("cookie value %q leaked from %v:\n%s", secret, args, joined)
+		}
+	}
 }
 
 func fixtures(t *testing.T) string {
@@ -34,31 +54,21 @@ func fixtures(t *testing.T) string {
 func TestDoctorGreenAfterCookieImport(t *testing.T) {
 	home := t.TempDir()
 	cookies := filepath.Join(fixtures(t), "cookies.txt")
-	stdout, stderr, err := runCLI(t, home, "auth", "login", "--cookie-file", cookies, "--json")
+	_, stderr, err := runCLI(t, home, "auth", "login", "--cookie-file", cookies, "--json")
 	if err != nil {
 		t.Fatalf("login: %v stderr=%s", err, stderr)
 	}
-	if strings.Contains(stdout+stderr, "SECRET") {
-		t.Fatalf("login leaked cookie value:\n%s\n%s", stdout, stderr)
-	}
-
-	stdout, stderr, err = runCLI(t, home, "doctor")
+	stdout, stderr, err := runCLI(t, home, "doctor")
 	if err != nil {
 		t.Fatalf("doctor: %v\n%s\n%s", err, stdout, stderr)
 	}
 	if !strings.Contains(stdout, "doctor: green") {
 		t.Fatalf("want green doctor, got %q", stdout)
 	}
-	if strings.Contains(stdout+stderr, "SECRET") {
-		t.Fatalf("doctor leaked cookie value")
-	}
 
-	stdout, stderr, err = runCLI(t, home, "auth", "status", "--json")
+	stdout, _, err = runCLI(t, home, "auth", "status", "--json")
 	if err != nil {
 		t.Fatal(err)
-	}
-	if strings.Contains(stdout+stderr, "SECRET") {
-		t.Fatalf("status leaked cookie value: %s", stdout)
 	}
 	var wrap map[string]any
 	if err := json.Unmarshal([]byte(stdout), &wrap); err != nil {
@@ -94,6 +104,14 @@ func TestSyncFixtureAndQueries(t *testing.T) {
 	}
 	if !strings.Contains(stdout, "Ippudo") || !strings.Contains(stdout, `"ok":true`) {
 		t.Fatalf("get = %s", stdout)
+	}
+
+	stdout, _, err = runCLI(t, home, "spend", "--by", "month", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(stdout, "2026-03") || !strings.Contains(stdout, "2025-12") {
+		t.Fatalf("spend month = %s", stdout)
 	}
 
 	stdout, _, err = runCLI(t, home, "spend", "--by", "year", "--json")
@@ -165,6 +183,41 @@ func TestIncrementalSyncSkipsKnown(t *testing.T) {
 	}
 }
 
+func TestLoginJSONCookieFixture(t *testing.T) {
+	home := t.TempDir()
+	cookies := filepath.Join(fixtures(t), "cookies.json")
+	stdout, stderr, err := runCLI(t, home, "auth", "login", "--cookie-file", cookies, "--json")
+	if err != nil {
+		t.Fatalf("json login: %v stderr=%s", err, stderr)
+	}
+	if !strings.Contains(stdout, `"imported": 2`) && !strings.Contains(stdout, `"imported":2`) {
+		t.Fatalf("json login = %s", stdout)
+	}
+
+	stdout, stderr, err = runCLI(t, home, "doctor", "--json")
+	if err != nil {
+		t.Fatalf("doctor after json login: %v\n%s\n%s", err, stdout, stderr)
+	}
+	if !strings.Contains(stdout, `"ok": true`) && !strings.Contains(stdout, `"ok":true`) {
+		t.Fatalf("want green doctor json, got %s", stdout)
+	}
+}
+
+func TestHumanLoginOmitsValues(t *testing.T) {
+	home := t.TempDir()
+	cookies := filepath.Join(fixtures(t), "cookies.txt")
+	stdout, stderr, err := runCLI(t, home, "auth", "login", "--cookie-file", cookies)
+	if err != nil {
+		t.Fatalf("login: %v stderr=%s", err, stderr)
+	}
+	if !strings.Contains(stdout, "imported 3 cookies") {
+		t.Fatalf("human login = %s", stdout)
+	}
+	if !strings.Contains(stdout, "sid") || !strings.Contains(stdout, "csid") {
+		t.Fatalf("human login should list names: %s", stdout)
+	}
+}
+
 func TestLoginStdinHeader(t *testing.T) {
 	home := t.TempDir()
 	cmd := NewRoot()
@@ -176,7 +229,5 @@ func TestLoginStdinHeader(t *testing.T) {
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(out.String()+errb.String(), "piped-SECRET") {
-		t.Fatalf("stdin login leaked value: %s", out.String())
-	}
+	assertNoCookieLeak(t, []string{"auth", "login", "--cookie-file", "-"}, out.String(), errb.String())
 }
