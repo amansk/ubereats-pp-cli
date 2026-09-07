@@ -1,0 +1,12 @@
+/ubereats-pp-cli
+/bin/
+/dist/
+*.db
+*.db-wal
+*.db-shm
+/cookies.json
+.env
+.idea/
+.vscode/
+*.swp
+.DS_Store
