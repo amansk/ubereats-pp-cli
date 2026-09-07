@@ -1,0 +1,5 @@
+# Netscape HTTP Cookie File
+# Fixture only — not a real session. Values must never appear in CLI output.
+.ubereats.com	TRUE	/	TRUE	1999999999	sid	fixture-sid-SECRET-do-not-print
+.ubereats.com	TRUE	/	TRUE	1999999999	csid	fixture-csid-SECRET-do-not-print
+.uber.com	TRUE	/	TRUE	1999999999	jwt-session	fixture-jwt-SECRET-do-not-print
