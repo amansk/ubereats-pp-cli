@@ -30,7 +30,7 @@ func ParseCookies(r io.Reader, source string) (Store, error) {
 			return Store{}, err
 		}
 		if len(st.Cookies) == 0 {
-			return Store{}, exitcode.Authf("json cookie export contained no cookies")
+			return Store{}, exitcode.Authf("json cookie export contained no cookies for ubereats.com / uber.com")
 		}
 		return st, nil
 	}
@@ -42,7 +42,7 @@ func ParseCookies(r io.Reader, source string) (Store, error) {
 			return Store{}, err
 		}
 		if len(st.Cookies) == 0 {
-			return Store{}, exitcode.Authf("netscape cookie file contained no cookies")
+			return Store{}, exitcode.Authf("netscape cookie file contained no cookies for ubereats.com / uber.com")
 		}
 		return st, nil
 	}
@@ -88,6 +88,9 @@ func parseNetscape(s, source string) (Store, error) {
 		name := fields[5]
 		value := strings.Join(fields[6:], "\t")
 		if name == "" {
+			continue
+		}
+		if !AllowedCookieHost(domain) {
 			continue
 		}
 		st.Cookies[name] = value
@@ -141,6 +144,9 @@ func parseJSON(raw []byte, source string) (Store, error) {
 			if c.Name == "" {
 				continue
 			}
+			if c.Domain != "" && !AllowedCookieHost(c.Domain) {
+				continue
+			}
 			st.Cookies[c.Name] = c.Value
 			if c.Domain != "" {
 				domains[c.Domain] = struct{}{}
@@ -172,6 +178,10 @@ func parseJSON(raw []byte, source string) (Store, error) {
 				}
 				name := stringify(m["name"])
 				if name == "" {
+					continue
+				}
+				domain := stringify(m["domain"])
+				if domain != "" && !AllowedCookieHost(domain) {
 					continue
 				}
 				st.Cookies[name] = stringify(m["value"])

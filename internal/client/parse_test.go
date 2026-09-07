@@ -1,6 +1,7 @@
 package client
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
@@ -56,6 +57,11 @@ func TestParsePastOrdersFixture(t *testing.T) {
 	}
 	if !ramen {
 		t.Fatal("missing Ippudo")
+	}
+	id := "11111111-1111-1111-1111-111111111111"
+	blob := page.RawByID[id]
+	if len(blob) == 0 || !bytes.Contains(blob, []byte(`"storeInfo"`)) {
+		t.Fatalf("RawByID missing wire object: %s", blob)
 	}
 }
 

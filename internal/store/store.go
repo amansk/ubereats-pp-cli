@@ -122,11 +122,6 @@ func (d *DB) UpsertOrders(orders []model.Order, rawByID map[string][]byte) (int,
 		raw := []byte("{}")
 		if r, ok := rawByID[o.ID]; ok && len(r) > 0 {
 			raw = r
-		} else {
-			b, err := json.Marshal(o)
-			if err == nil {
-				raw = b
-			}
 		}
 		ordered := ""
 		if !o.OrderedAt.IsZero() {
@@ -227,6 +222,16 @@ func (d *DB) ListOrders(limit int, since, until *time.Time, includeItems bool) (
 		}
 	}
 	return out, nil
+}
+
+// OrderRawJSON returns the persisted wire blob for an order.
+func (d *DB) OrderRawJSON(id string) (string, error) {
+	var raw string
+	err := d.sql.QueryRow(`SELECT raw_json FROM orders WHERE id = ?`, id).Scan(&raw)
+	if err == sql.ErrNoRows {
+		return "", exitcode.NotFoundf("order %s not found", id)
+	}
+	return raw, err
 }
 
 func (d *DB) GetOrder(id string) (model.Order, error) {

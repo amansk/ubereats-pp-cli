@@ -25,21 +25,7 @@ func ParsePastOrders(raw []byte) (Page, error) {
 		data = asMap(root)
 	}
 
-	var orders []model.Order
-	if om := mapField(data, "ordersMap"); om != nil {
-		for _, v := range om {
-			if o, ok := normalizeOrder(v); ok {
-				orders = append(orders, o)
-			}
-		}
-	}
-	if arr, ok := field(data, "orders").([]any); ok && len(arr) > 0 && len(orders) == 0 {
-		for _, v := range arr {
-			if o, ok := normalizeOrder(v); ok {
-				orders = append(orders, o)
-			}
-		}
-	}
+	orders, rawByID := collectOrders(raw, data)
 
 	hasMore := boolish(deep(data, "meta", "hasMore"))
 	if !hasMore {
@@ -69,7 +55,75 @@ func ParsePastOrders(raw []byte) (Page, error) {
 		HasMore:    hasMore,
 		NextCursor: next,
 		Raw:        json.RawMessage(append([]byte(nil), raw...)),
+		RawByID:    rawByID,
 	}, nil
+}
+
+func collectOrders(raw []byte, data map[string]any) ([]model.Order, map[string][]byte) {
+	rawByID := map[string][]byte{}
+	var orders []model.Order
+
+	// Prefer exact wire bytes from ordersMap / orders so SQLite raw_json is
+	// the original object, not a remashed normalized model.
+	for _, blob := range wireOrderBlobs(raw) {
+		var v any
+		if err := json.Unmarshal(blob, &v); err != nil {
+			continue
+		}
+		o, ok := normalizeOrder(v)
+		if !ok {
+			continue
+		}
+		orders = append(orders, o)
+		rawByID[o.ID] = append([]byte(nil), blob...)
+	}
+	if len(orders) > 0 {
+		return orders, rawByID
+	}
+
+	if om := mapField(data, "ordersMap"); om != nil {
+		for _, v := range om {
+			if o, ok := normalizeOrder(v); ok {
+				orders = append(orders, o)
+			}
+		}
+	}
+	if arr, ok := field(data, "orders").([]any); ok && len(arr) > 0 && len(orders) == 0 {
+		for _, v := range arr {
+			if o, ok := normalizeOrder(v); ok {
+				orders = append(orders, o)
+			}
+		}
+	}
+	return orders, rawByID
+}
+
+func wireOrderBlobs(raw []byte) []json.RawMessage {
+	var env struct {
+		Data json.RawMessage `json:"data"`
+	}
+	if err := json.Unmarshal(raw, &env); err != nil {
+		return nil
+	}
+	payload := env.Data
+	if len(payload) == 0 {
+		payload = raw
+	}
+	var wrap struct {
+		OrdersMap map[string]json.RawMessage `json:"ordersMap"`
+		Orders    []json.RawMessage          `json:"orders"`
+	}
+	if err := json.Unmarshal(payload, &wrap); err != nil {
+		return nil
+	}
+	var out []json.RawMessage
+	for _, blob := range wrap.OrdersMap {
+		out = append(out, blob)
+	}
+	if len(out) == 0 {
+		out = append(out, wrap.Orders...)
+	}
+	return out
 }
 
 func normalizeOrder(v any) (model.Order, bool) {

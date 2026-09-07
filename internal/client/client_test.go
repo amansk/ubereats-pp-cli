@@ -102,4 +102,25 @@ func TestHTMLIsAPIError(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected html error")
 	}
+	var ex *exitcode.Error
+	if !exitcode.As(err, &ex) || ex.Code != exitcode.API {
+		t.Fatalf("want API/WAF exit 5, got %v", err)
+	}
+}
+
+func TestHTML403IsAPIWAF(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte("<html><title>Access Denied</title></html>"))
+	}))
+	defer srv.Close()
+	c := New(auth.Store{Cookies: map[string]string{"sid": "x"}}, srv.URL)
+	_, err := c.GetPastOrders(context.Background(), "")
+	if err == nil {
+		t.Fatal("expected html 403 error")
+	}
+	var ex *exitcode.Error
+	if !exitcode.As(err, &ex) || ex.Code != exitcode.API {
+		t.Fatalf("want API/WAF exit 5 for HTML 403, got %v", err)
+	}
 }

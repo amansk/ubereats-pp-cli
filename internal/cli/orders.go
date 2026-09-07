@@ -28,7 +28,7 @@ func newOrdersListCmd(opt *Options) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			u, err := parseDate(until)
+			u, err := parseUntilDate(until)
 			if err != nil {
 				return err
 			}

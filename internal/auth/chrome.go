@@ -83,12 +83,18 @@ func summarizeChromeErr(err error) string {
 	return msg
 }
 
-func relevantChromeHost(host string) bool {
-	h := strings.ToLower(host)
+// AllowedCookieHost is true for PLAN.md Eats session domains:
+// .ubereats.com, .uber.com, auth.uber.com (and their host variants).
+func AllowedCookieHost(host string) bool {
+	h := strings.ToLower(strings.TrimSpace(host))
 	h = strings.TrimPrefix(h, ".")
 	return strings.HasSuffix(h, "ubereats.com") ||
 		h == "uber.com" || strings.HasSuffix(h, ".uber.com") ||
 		h == "auth.uber.com"
+}
+
+func relevantChromeHost(host string) bool {
+	return AllowedCookieHost(host)
 }
 
 func readChromeSQLite(path string) (Store, error) {

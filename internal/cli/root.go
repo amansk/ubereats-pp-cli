@@ -121,6 +121,10 @@ func writeOut(cmd *cobra.Command, opt *Options, data any) error {
 	return opt.Mode().Encode(cmd.OutOrStdout(), data)
 }
 
+func writeOutStatus(cmd *cobra.Command, opt *Options, ok bool, data any, errMsg string) error {
+	return opt.Mode().EncodeStatus(cmd.OutOrStdout(), ok, data, errMsg)
+}
+
 func writeHumanTable(cmd *cobra.Command, opt *Options, headers []string, rows [][]string, jsonData any) error {
 	if opt.JSON || opt.Agent {
 		return writeOut(cmd, opt, jsonData)
@@ -129,14 +133,29 @@ func writeHumanTable(cmd *cobra.Command, opt *Options, headers []string, rows []
 }
 
 func parseDate(s string) (*time.Time, error) {
+	return parseDateBound(s, false)
+}
+
+func parseUntilDate(s string) (*time.Time, error) {
+	return parseDateBound(s, true)
+}
+
+// parseDateBound parses YYYY-MM-DD or RFC3339. A date-only until bound is
+// inclusive of the whole UTC calendar day (end of that day).
+func parseDateBound(s string, until bool) (*time.Time, error) {
 	if s == "" {
 		return nil, nil
 	}
-	for _, l := range []string{time.RFC3339, "2006-01-02"} {
-		if t, err := time.Parse(l, s); err == nil {
-			u := t.UTC()
-			return &u, nil
+	if t, err := time.Parse("2006-01-02", s); err == nil {
+		u := t.UTC()
+		if until {
+			u = u.Add(24*time.Hour - time.Nanosecond)
 		}
+		return &u, nil
+	}
+	if t, err := time.Parse(time.RFC3339, s); err == nil {
+		u := t.UTC()
+		return &u, nil
 	}
 	return nil, exitcode.Usagef("invalid date %q (use YYYY-MM-DD or RFC3339)", s)
 }

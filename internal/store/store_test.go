@@ -90,6 +90,45 @@ func TestUpsertListSpendFind(t *testing.T) {
 	}
 }
 
+func TestUntilIncludesWholeUTCDay(t *testing.T) {
+	db, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	when := time.Date(2026, 3, 15, 19, 22, 0, 0, time.UTC)
+	orders := []model.Order{{
+		ID: "mid-day", RestaurantName: "Shake Shack", Currency: "USD",
+		TotalCents: 100, OrderedAt: when,
+	}}
+	if _, _, err := db.UpsertOrders(orders, map[string][]byte{"mid-day": []byte(`{"wire":true}`)}); err != nil {
+		t.Fatal(err)
+	}
+	midnight := time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC)
+	got, err := db.ListOrders(10, nil, &midnight, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("midnight until should exclude evening order, got %+v", got)
+	}
+	end := midnight.Add(24*time.Hour - time.Nanosecond)
+	got, err = db.ListOrders(10, nil, &end, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].ID != "mid-day" {
+		t.Fatalf("end-of-day until should include 2026-03-15: %+v", got)
+	}
+	raw, err := db.OrderRawJSON("mid-day")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if raw != `{"wire":true}` {
+		t.Fatalf("raw_json = %s", raw)
+	}
+}
+
 func TestGetMissing(t *testing.T) {
 	db, err := Open(t.TempDir())
 	if err != nil {

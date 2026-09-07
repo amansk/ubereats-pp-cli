@@ -69,6 +69,51 @@ func TestStatusNeverIncludesValues(t *testing.T) {
 	}
 }
 
+func TestFileImportDropsOffDomainCookies(t *testing.T) {
+	netscape := `# Netscape HTTP Cookie File
+.google.com	TRUE	/	TRUE	1999999999	NID	google-secret-drop
+.ubereats.com	TRUE	/	TRUE	1999999999	sid	keep-eats
+.uber.com	TRUE	/	TRUE	1999999999	csid	keep-uber
+`
+	st, err := ParseCookies(strings.NewReader(netscape), "file")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := st.Cookies["NID"]; ok {
+		t.Fatalf("google cookie kept: %#v", st.Cookies)
+	}
+	if st.Cookies["sid"] != "keep-eats" || st.Cookies["csid"] != "keep-uber" {
+		t.Fatalf("eats cookies missing: %#v", st.Cookies)
+	}
+	for _, d := range st.Domains {
+		if strings.Contains(d, "google") {
+			t.Fatalf("google domain persisted: %v", st.Domains)
+		}
+	}
+
+	js := `[
+	  {"name":"NID","value":"google-json-drop","domain":".google.com"},
+	  {"name":"sid","value":"keep-json","domain":".ubereats.com"}
+	]`
+	got, err := ParseCookies(strings.NewReader(js), "json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := got.Cookies["NID"]; ok {
+		t.Fatalf("json google cookie kept: %#v", got.Cookies)
+	}
+	if got.Cookies["sid"] != "keep-json" {
+		t.Fatalf("json eats cookie missing: %#v", got.Cookies)
+	}
+}
+
+func TestFileImportRejectsOnlyOffDomainCookies(t *testing.T) {
+	_, err := ParseCookies(strings.NewReader(`[{"name":"NID","value":"x","domain":".google.com"}]`), "json")
+	if err == nil {
+		t.Fatal("expected error when no allowed-domain cookies remain")
+	}
+}
+
 func TestEmptyInput(t *testing.T) {
 	_, err := ParseCookies(strings.NewReader("  \n"), "x")
 	if err == nil {

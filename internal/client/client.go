@@ -46,6 +46,7 @@ type Page struct {
 	HasMore    bool
 	NextCursor string
 	Raw        json.RawMessage
+	RawByID    map[string][]byte // original per-order wire objects
 }
 
 // RPC POSTs /_p/api/<op> with browser-like headers.
@@ -88,6 +89,9 @@ func (c *Client) RPC(ctx context.Context, op string, body any) (json.RawMessage,
 		return nil, resp.StatusCode, exitcode.Transientf("%s read: %w", op, err)
 	}
 
+	if looksHTML(raw) {
+		return raw, resp.StatusCode, exitcode.APIf("%s: HTML response (WAF/login wall?), HTTP %d", op, resp.StatusCode)
+	}
 	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
 		return raw, resp.StatusCode, exitcode.Authf("%s: HTTP %d (session expired or rejected)", op, resp.StatusCode)
 	}
@@ -96,9 +100,6 @@ func (c *Client) RPC(ctx context.Context, op string, body any) (json.RawMessage,
 	}
 	if resp.StatusCode >= 500 {
 		return raw, resp.StatusCode, exitcode.Transientf("%s: HTTP %d", op, resp.StatusCode)
-	}
-	if looksHTML(raw) {
-		return raw, resp.StatusCode, exitcode.APIf("%s: HTML response (WAF/login wall?), HTTP %d", op, resp.StatusCode)
 	}
 	if resp.StatusCode >= 400 {
 		return raw, resp.StatusCode, exitcode.APIf("%s: HTTP %d %s", op, resp.StatusCode, peek(raw))

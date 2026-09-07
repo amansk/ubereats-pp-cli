@@ -98,12 +98,17 @@ func newDoctorCmd(opt *Options) *cobra.Command {
 
 			payload := map[string]any{"checks": checks, "ok": !failed}
 			if opt.JSON || opt.Agent {
+				errMsg := ""
 				if failed {
-					// Still print the report; exit non-zero via typed error after encode.
-					_ = writeOut(cmd, opt, payload)
+					errMsg = authFailFromDoctor(checks).Error()
+				}
+				if err := writeOutStatus(cmd, opt, !failed, payload, errMsg); err != nil {
+					return err
+				}
+				if failed {
 					return authFailFromDoctor(checks)
 				}
-				return writeOut(cmd, opt, payload)
+				return nil
 			}
 			for _, c := range checks {
 				fmt.Fprintf(cmd.OutOrStdout(), "%-8s %-5s %s\n", c.Name, c.Status, c.Detail)

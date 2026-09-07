@@ -166,7 +166,7 @@ func ingestPages(db *store.DB, pages []client.Page, mode, source string) (model.
 			}
 			unknown++
 			batch = append(batch, o)
-			if b, err := json.Marshal(o); err == nil {
+			if b := page.RawByID[o.ID]; len(b) > 0 {
 				rawByID[o.ID] = b
 			}
 		}

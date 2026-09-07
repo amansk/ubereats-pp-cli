@@ -7,8 +7,10 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/amansk/ubereats-pp-cli/internal/exitcode"
+	"github.com/amansk/ubereats-pp-cli/internal/store"
 )
 
 var fixtureSecrets = []string{
@@ -168,6 +170,25 @@ func TestDoctorFailsWithoutCookies(t *testing.T) {
 	}
 }
 
+func TestDoctorJSONFailureEnvelopeOkFalse(t *testing.T) {
+	home := t.TempDir()
+	stdout, _, err := runCLI(t, home, "doctor", "--json")
+	if err == nil {
+		t.Fatal("expected doctor failure")
+	}
+	var wrap map[string]any
+	if err := json.Unmarshal([]byte(stdout), &wrap); err != nil {
+		t.Fatalf("json: %v\n%s", err, stdout)
+	}
+	ok, _ := wrap["ok"].(bool)
+	if ok {
+		t.Fatalf("top-level ok should be false on failure: %s", stdout)
+	}
+	if wrap["error"] == nil || wrap["error"] == "" {
+		t.Fatalf("want error field on failure envelope: %s", stdout)
+	}
+}
+
 func TestIncrementalSyncSkipsKnown(t *testing.T) {
 	home := t.TempDir()
 	fx := filepath.Join(fixtures(t), "past_orders_page.json")
@@ -180,6 +201,67 @@ func TestIncrementalSyncSkipsKnown(t *testing.T) {
 	}
 	if !strings.Contains(stdout, `"upserted": 0`) && !strings.Contains(stdout, `"upserted":0`) {
 		t.Fatalf("expected no new upserts: %s", stdout)
+	}
+}
+
+func TestParseUntilDateCoversEveningUTC(t *testing.T) {
+	u, err := parseUntilDate("2026-03-15")
+	if err != nil || u == nil {
+		t.Fatalf("parse: %v", err)
+	}
+	evening := time.Date(2026, 3, 15, 19, 22, 0, 0, time.UTC)
+	if evening.After(*u) {
+		t.Fatalf("until %s excludes evening %s", u.Format(time.RFC3339Nano), evening)
+	}
+	s, err := parseDate("2026-03-15")
+	if err != nil || s == nil || !s.Equal(time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC)) {
+		t.Fatalf("since should stay midnight: %v %v", s, err)
+	}
+}
+
+func TestUntilIncludesCalendarDay(t *testing.T) {
+	home := t.TempDir()
+	fx := filepath.Join(fixtures(t), "past_orders_page.json")
+	if _, _, err := runCLI(t, home, "sync", "--from-fixture", fx, "--json"); err != nil {
+		t.Fatal(err)
+	}
+	const midDayID = "11111111-1111-1111-1111-111111111111" // 2026-03-15T19:22:00Z
+	stdout, _, err := runCLI(t, home, "orders", "list", "--until", "2026-03-15", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(stdout, midDayID) {
+		t.Fatalf("--until 2026-03-15 should include same-day order: %s", stdout)
+	}
+	stdout, _, err = runCLI(t, home, "orders", "list", "--until", "2026-03-14", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(stdout, midDayID) {
+		t.Fatalf("--until 2026-03-14 should exclude 2026-03-15 order: %s", stdout)
+	}
+}
+
+func TestSyncStoresWireJSON(t *testing.T) {
+	home := t.TempDir()
+	fx := filepath.Join(fixtures(t), "past_orders_page.json")
+	if _, _, err := runCLI(t, home, "sync", "--from-fixture", fx, "--json"); err != nil {
+		t.Fatal(err)
+	}
+	db, err := store.Open(home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	raw, err := db.OrderRawJSON("11111111-1111-1111-1111-111111111111")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(raw, `"storeInfo"`) || !strings.Contains(raw, `"fareInfo"`) {
+		t.Fatalf("raw_json is not wire blob: %s", raw)
+	}
+	if strings.Contains(raw, `"restaurant_name"`) || strings.Contains(raw, `"total_cents"`) {
+		t.Fatalf("raw_json looks remashed: %s", raw)
 	}
 }
 

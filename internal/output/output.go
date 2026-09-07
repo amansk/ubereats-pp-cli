@@ -21,11 +21,20 @@ func (m Mode) Compact() bool { return m.Agent }
 
 // Encode writes a successful payload.
 func (m Mode) Encode(w io.Writer, data any) error {
+	return m.EncodeStatus(w, true, data, "")
+}
+
+// EncodeStatus writes a machine envelope whose top-level ok matches the outcome.
+func (m Mode) EncodeStatus(w io.Writer, ok bool, data any, errMsg string) error {
 	if m.Quiet && !m.JSON && !m.Agent {
 		return nil
 	}
 	if m.JSON || m.Agent {
-		return writeJSON(w, map[string]any{"ok": true, "data": data}, m.Compact())
+		env := map[string]any{"ok": ok, "data": data}
+		if errMsg != "" {
+			env["error"] = errMsg
+		}
+		return writeJSON(w, env, m.Compact())
 	}
 	return writeHuman(w, data)
 }
