@@ -69,13 +69,18 @@ Cookie values are stored with mode 0600 and are never written to stdout/stderr.`
 				return err
 			}
 			status := st.Status(auth.CookiePath(home))
-			return writeOut(cmd, opt, map[string]any{
+			payload := map[string]any{
 				"imported": status.Count,
 				"names":    status.Names,
 				"source":   status.Source,
 				"path":     status.Path,
 				"hints":    status.Hints,
-			})
+			}
+			if !opt.JSON && !opt.Agent {
+				fmt.Fprintf(cmd.OutOrStdout(), "imported %d cookies (%s) from %s\n", status.Count, strings.Join(status.Names, ", "), status.Source)
+				return nil
+			}
+			return writeOut(cmd, opt, payload)
 		},
 	}
 	cmd.Flags().StringVar(&cookieFile, "cookie-file", "", "Cookie file path, or - for stdin")
