@@ -47,7 +47,7 @@ func HomeDir(override string) (string, error) {
 	if override != "" {
 		return override, nil
 	}
-	if env := os.Getenv("UBERATS_PP_HOME"); env != "" {
+	if env := os.Getenv("UBEREATS_PP_HOME"); env != "" {
 		return env, nil
 	}
 	dir, err := os.UserHomeDir()

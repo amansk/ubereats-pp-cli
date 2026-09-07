@@ -338,13 +338,13 @@ func (d *DB) Find(query string, limit int) ([]model.Order, error) {
 	if limit <= 0 {
 		limit = 50
 	}
-	like := "%" + q + "%"
+	like := "%" + escapeLike(q) + "%"
 	rows, err := d.sql.Query(`
 SELECT DISTINCT o.id, o.workflow_uuid, o.restaurant_uuid, o.restaurant_name, o.currency, o.total_cents, o.ordered_at, o.status, o.synced_at
 FROM orders o
 LEFT JOIN items i ON i.order_id = o.id
-WHERE o.restaurant_name LIKE ? COLLATE NOCASE
-   OR i.title LIKE ? COLLATE NOCASE
+WHERE o.restaurant_name LIKE ? ESCAPE '\' COLLATE NOCASE
+   OR i.title LIKE ? ESCAPE '\' COLLATE NOCASE
 ORDER BY o.ordered_at DESC
 LIMIT ?`, like, like, limit)
 	if err != nil {
@@ -370,6 +370,12 @@ LIMIT ?`, like, like, limit)
 		out[i].Items = items
 	}
 	return out, nil
+}
+
+// escapeLike neutralizes LIKE wildcards so a user query matches literally.
+func escapeLike(s string) string {
+	r := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
+	return r.Replace(s)
 }
 
 func (d *DB) Count() (int, error) {

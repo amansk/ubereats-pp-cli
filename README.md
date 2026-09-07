@@ -73,7 +73,7 @@ ubereats-pp-cli --home /tmp/ue sync --from-fixture testdata/fixtures/past_orders
 ubereats-pp-cli --home /tmp/ue orders list --json
 ```
 
-State lives in `$UBERATS_PP_HOME` or `~/.config/ubereats-pp-cli` (`cookies.json`, `ubereats.db`).
+State lives in `$UBEREATS_PP_HOME` or `~/.config/ubereats-pp-cli` (`cookies.json`, `ubereats.db`).
 
 ## Exit codes
 
@@ -91,3 +91,23 @@ State lives in `$UBERATS_PP_HOME` or `~/.config/ubereats-pp-cli` (`cookies.json`
 Place, tip, pay, cart writes, Uber rides.
 
 Agents: see [SKILL.md](SKILL.md).
+
+## Security notes
+
+- Cookies are stored in plaintext at `cookies.json` with mode `0600`. Treat that file like a password; `auth logout` deletes it.
+- Cookie values are never written to stdout, stderr, logs, or error messages. Tests assert this against the fixtures.
+- This CLI replays an unofficial, undocumented web endpoint with your own session. Uber can change or block it at any time, and use may be subject to Uber's terms of service. Use it only on your own account.
+
+## Contributing to the Printing Press library
+
+This CLI follows [Printing Press](https://printingpress.dev) conventions (agent flags, typed exit codes, local SQLite). Note that the public [printing-press-library](https://github.com/mvanhorn/printing-press-library) only accepts entries produced by the `/printing-press` generator, which adds the provenance manifest, manuscripts, and proof artifacts its CI requires. To submit this CLI there, run it through the generator (or `/printing-press-reprint`) rather than opening a hand-built PR.
+
+## Development
+
+```bash
+go test ./...
+go vet ./...
+gofmt -l .
+```
+
+CI runs the same checks plus the offline fixture smoke test above.

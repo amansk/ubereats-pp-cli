@@ -1,0 +1,38 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: gofmt
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+      - name: go vet
+        run: go vet ./...
+      - name: go build
+        run: go build ./...
+      - name: go test
+        run: go test ./...
+      - name: fixture smoke (no network)
+        run: |
+          go build -o ubereats-pp-cli ./cmd/ubereats-pp-cli
+          ./ubereats-pp-cli --version
+          ./ubereats-pp-cli --help >/dev/null
+          H="$RUNNER_TEMP/ue"
+          ./ubereats-pp-cli --home "$H" auth login --cookie-file testdata/fixtures/cookies.txt --json
+          ./ubereats-pp-cli --home "$H" doctor --agent
+          ./ubereats-pp-cli --home "$H" sync --from-fixture testdata/fixtures/past_orders_page.json --json
+          ./ubereats-pp-cli --home "$H" orders list --json
+          # cookie values must never reach stdout/stderr
+          ! ./ubereats-pp-cli --home "$H" auth status --json 2>&1 | grep -q "SECRET-do-not-print"

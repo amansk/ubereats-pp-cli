@@ -140,3 +140,32 @@ func TestGetMissing(t *testing.T) {
 		t.Fatal("expected not found")
 	}
 }
+
+func TestFindEscapesLikeWildcards(t *testing.T) {
+	db, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	orders := []model.Order{
+		{ID: "a", RestaurantName: "100% Taqueria", OrderedAt: time.Now()},
+		{ID: "b", RestaurantName: "Plain Diner", OrderedAt: time.Now()},
+	}
+	if _, _, err := db.UpsertOrders(orders, nil); err != nil {
+		t.Fatal(err)
+	}
+	got, err := db.Find("%", 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].ID != "a" {
+		t.Fatalf("want only the literal %% match, got %+v", got)
+	}
+	got, err = db.Find("_", 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("underscore should not act as a wildcard, got %+v", got)
+	}
+}

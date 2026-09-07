@@ -68,7 +68,7 @@ func newDoctorCmd(opt *Options) *cobra.Command {
 					if err != nil {
 						checks = append(checks, check{Name: "api", Status: "fail", Detail: "session unreadable", Fatal: true})
 					} else {
-						base := os.Getenv("UBERATS_PP_BASE_URL")
+						base := os.Getenv("UBEREATS_PP_BASE_URL")
 						c := client.New(jar, base)
 						ctx, cancel := context.WithTimeout(cmd.Context(), 20*time.Second)
 						defer cancel()

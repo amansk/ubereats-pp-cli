@@ -72,7 +72,7 @@ func NewRoot() *cobra.Command {
 	cmd.PersistentFlags().BoolVar(&opt.NoColor, "no-color", false, "Disable color")
 	cmd.PersistentFlags().BoolVar(&opt.NoInput, "no-input", false, "Never read a TTY prompt")
 	cmd.PersistentFlags().BoolVar(&opt.Yes, "yes", false, "Assume yes (reserved)")
-	cmd.PersistentFlags().StringVar(&opt.Home, "home", "", "Override state dir ($UBERATS_PP_HOME or ~/.config/ubereats-pp-cli)")
+	cmd.PersistentFlags().StringVar(&opt.Home, "home", "", "Override state dir ($UBEREATS_PP_HOME or ~/.config/ubereats-pp-cli)")
 
 	cmd.AddCommand(newAuthCmd(opt))
 	cmd.AddCommand(newDoctorCmd(opt))

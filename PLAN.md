@@ -42,7 +42,7 @@ Observed / commonly reported: `sid`, `csid`, `jwt-session`, `uev2.id.session`, `
 
 ### Storage
 
-- Home: `$UBERATS_PP_HOME` or `~/.config/ubereats-pp-cli`
+- Home: `$UBEREATS_PP_HOME` or `~/.config/ubereats-pp-cli`
 - Files: `cookies.json` (0600), `ubereats.db`
 - On-disk cookie file stores name→value plus metadata (`imported_at`, `source`, domains). **CLI output never includes values** — only names, count, source, and timestamps.
 - `auth status` fingerprints the session as `cookies=N names=sid,csid,...` — never values.

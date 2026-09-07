@@ -97,7 +97,7 @@ func syncFromAPI(ctx context.Context, home string, db *store.DB, mode string) (m
 	if err != nil {
 		return model.SyncResult{}, err
 	}
-	base := os.Getenv("UBERATS_PP_BASE_URL")
+	base := os.Getenv("UBEREATS_PP_BASE_URL")
 	c := client.New(st, base)
 	known := map[string]struct{}{}
 	if mode == "incremental" {
