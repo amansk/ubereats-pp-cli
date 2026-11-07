@@ -17,7 +17,7 @@ jobs:
         with:
           go-version-file: go.mod
       - name: gofmt
-        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+        run: test -z "$("$(go env GOROOT)/bin/gofmt" -l .)" || { gofmt -l .; exit 1; }
       - name: go vet
         run: go vet ./...
       - name: go build
